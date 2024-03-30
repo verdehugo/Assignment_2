@@ -6,10 +6,6 @@
 
 #include "cmdproc.h"
 
-/* Constants */
-#define SOF_SYM '#'  // Start of Frame symbol
-#define EOF_SYM '!'  // End of Frame symbol
-
 /* Internal variables */
 /* Used as part of the UART emulation */
 static unsigned char UARTRxBuffer[UART_RX_SIZE];
@@ -18,114 +14,165 @@ static unsigned char rxBufLen = 0;
 static unsigned char UARTTxBuffer[UART_TX_SIZE];
 static unsigned char txBufLen = 0; 
 
+static int sensor_temp [] = {-50, -47, -40, -33, -30, -22, -20, -11, -10, -9, 0, 6, 10, 13, 20, 27, 30, 35, 40, 48}; 
 
+static int sensor_humidity [] = {0, 5, 8, 12, 15, 20, 22, 30, 33, 35, 45, 49,  57, 61, 73, 77, 81, 88, 99, 100 };
 
+static int sensor_CO2[] = {1550, 4545,5146, 5526, 7009, 10009, 10589, 10964, 11081, 11131, 12161, 13088, 14904 15469, 15554, 16024, 16160, 16510, 16651, 18761};
  
 /* Function implementation */
-
 
 /* 
  * cmdProcessor
  */ 
 int cmdProcessor(void)
 {
-    // Process command if a complete command is received
-    if (rxChar(0) == 1) {
-        // Extract command and data
-        unsigned char cmd = UARTRxBuffer[1];
-        unsigned char data[UART_RX_SIZE - 6]; // Subtracting 6 for SOF, CMD, DATA, CS, and EOF
-        int dataLen = rxBufLen - 6; // Subtracting 6 for SOF, CMD, DATA, CS, and EOF
+	int i;
+	unsigned char sid;
+		
+	/* Detect empty cmd string */
+	if(rxBufLen == 0)
+		return -1; 
+	
+	/* Find index of SOF */
+	for(i=0; i < rxBufLen; i++) 
+	{
+		if(UARTRxBuffer[i] == SOF_SYM) {
+			break;
+		}
+	}
+	
+	/* If a SOF was found look for commands */
+	if(i < rxBufLen) 
+	{
+		
+		switch(UARTRxBuffer[i+1]) { 
+			
+			case 'P':		
+				/* Command "P" detected.							*/
+				/* Follows one DATA byte that specifies the sensor	*/ 
+				/* to read. I assume 't','h','c' for temp., humid. 	*/
+				/* and CO2, resp.									*/   
+		
+				/* Check sensor type */
+				sid = UARTRxBuffer[i+2];
+				if(sid != 't' && sid != 'h' && sid != 'c') {
+					return -2;
+				}
+				
+				if(sid == 't')
+				{
+				
+					//implement to read the position zero of array temperature
+					int temperature = sensor_temp[0];
+				}
+				
+				if(sid == 'h')
+				{
+					// implement to read the position zero of array humidity 
+					int humidity = sensor_humidity[0];
+				
+				}
+				
+				if(sid == 'c')
+				{
+				
+					// implement to read the position zero of array co2
+					int co2 = sensor_CO2[0];
+				}
+				break;
+				
+			case 'A':
+			
+				// implement to read the position zero value of all the arrays
+				break;
+				
+			case 'L':
+			
+				// implement to read aoo the 20 positions of the 3 arrays !
+				break;
+				
+			case 'R':
+				
+				// implement to reset everything. Reset array valuers or just start the program from the beggining?
+				
+				resettRxBuffer();
+				resetTxBuffer();
+				break;
+				
+				
+				/* Check checksum */
+				if(!(calcChecksum(&(UARTRxBuffer[i+1]),2))) {
+					return -3;
+				}
+				
+				/* Check EOF */
+				if(UARTRxBuffer[i+6] != EOF_SYM) {
+					return -4;
+				}
+			
+				/* Command is (is it? ... ) valid. Produce answer and terminate */ 
+				txChar('#');
+				txChar('p'); /* p is the reply to P 							*/	
+				txChar('t'); /* t indicate that it is a temperature 			*/
+				txChar('+'); /* This is the sensor reading. You should call a 	*/
+				txChar('2'); /*   function that emulates the reading of a 		*/
+				txChar('1'); /*   sensor value 	*/
+				txChar('1'); /* Checksum is 114 decimal in this case		*/
+				txChar('1'); /*   You should call a funcion that computes 	*/
+				txChar('4'); /*   the checksum for any command 				*/  
+				txChar('!');
+				
+				/* Here you should remove the characters that are part of the 		*/
+				/* command from the RX buffer. I'm just resetting it, which is not 	*/
+				/* a good solution, as a new command could be in progress and		*/
+				/* resetting  will generate errors									*/
+				rxBufLen = 0;	
+				
+				return 0;
+								
+			default:
+				/* If code reaches this place, the command is not recognized */
+				return -2;				
+		}
+		
+		
+	}
+	
+	/* Cmd string not null and SOF not found */
+	return -4;
 
-        memcpy(data, &UARTRxBuffer[2], dataLen);
+}
 
-        // Process command here
-        switch (cmd) {
-            case 'P':
-                // Process command P
-                // Example: assuming data represents temperature
-                printf("Temperature: %.*s\n", dataLen, data);
-                break;
-                
-            case 'A':
-            	// Process command A
-            	// 
-            	
-    	    case 'L':
-    	    	// Process command L (return the 20 last samples of each variable)
-    	    	
-    	    case 'R':
-    	    	// Resets the history
-    	    	    
-            // Add cases for other commands as needed
-            default:
-                // Unknown command
-                break;
-        }
-        
-        resetRxBuffer(); // Reset buffer
-        return 1; // Signal that a command has been processed
-    } else if (rxChar(0) == -2) {
-        // Incorrect checksum
-        return -2; // Signal incorrect checksum
-    }
+/* 
+ * calcChecksum
+ */ 
+int calcChecksum(unsigned char * buf, int nbytes) {
+	
+	int checksum = 0;
+    	for (int i = 0; i < nbytes; i++) 
+    	{
+        	checksum += buf[i];
+    	}
+    		checksum %= 256; // Modulo 256
+    		return checksum;
 
-    return 0; // Signal that no command has been processed
 }
 
 /*
  * rxChar
  */
-/* 
- * rxChar
- */
 int rxChar(unsigned char car)
 {
-    static int receivingCommand = 0;
-    static int dataLength = 0;
-    static int checksum = 0;
-    static unsigned char cmd;
-
-    if (car == SOF_SYM) {
-        resetRxBuffer(); // Reset buffer when starting a new command
-        receivingCommand = 1;
-        checksum = 0;
-        dataLength = 0;
-    }
-
-    if (receivingCommand) {
-        if (rxBufLen < UART_RX_SIZE) {
-            UARTRxBuffer[rxBufLen] = car;
-            rxBufLen += 1;
-        } else {
-            // Buffer overflow handling
-            resetRxBuffer(); // Reset buffer on overflow
-            receivingCommand = 0; // Reset receiving flag
-            return -1;
-        }
-
-        if (car != SOF_SYM && car != EOF_SYM && car != CMD_SYM && car != CS_SYM) {
-            // Accumulate checksum
-            checksum += car;
-            // Increment data length
-            dataLength++;
-        }
-
-        if (car == EOF_SYM) {
-            receivingCommand = 0; // Reset receiving flag
-
-            // Verify checksum
-            if ((checksum % 256) == UARTRxBuffer[rxBufLen - 2]) {
-                // Valid command received
-                return 1; // Signal that a complete command has been received
-            } else {
-                // Invalid checksum, discard command
-                resetRxBuffer(); // Reset buffer
-                return -2; // Signal incorrect checksum
-            }
-        }
-    }
-
-    return 0; // Signal that a character has been received
+	/* If rxbuff not full add char to it */
+	if (rxBufLen < UART_RX_SIZE) 
+	{
+		UARTRxBuffer[rxBufLen] = car;
+		rxBufLen += 1;
+		return 0;		
+	}	
+	/* If cmd string full return error */
+	return -1;
 }
 
 /*
@@ -134,7 +181,8 @@ int rxChar(unsigned char car)
 int txChar(unsigned char car)
 {
 	/* If rxbuff not full add char to it */
-	if (txBufLen < UART_TX_SIZE) {
+	if (txBufLen < UART_TX_SIZE) 
+	{
 		UARTTxBuffer[txBufLen] = car;
 		txBufLen += 1;
 		return 0;		
@@ -167,11 +215,11 @@ void resetTxBuffer(void)
 void getTxBuffer(unsigned char * buf, int * len)
 {
 	*len = txBufLen;
-	if(txBufLen > 0) {
+	if(txBufLen > 0) 
+	{
 		memcpy(buf,UARTTxBuffer,*len);
 	}		
 	return;
 }
-
 
 
