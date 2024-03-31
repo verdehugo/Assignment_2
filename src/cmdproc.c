@@ -1,6 +1,8 @@
 /* ****************************** */
 /* See cmdProc.h for indications  */
 /* ****************************** */
+// Author: Hugo Alcaire Verde
+// Date : 31 March 2024
 #include <stdio.h>
 #include <string.h>
 
@@ -64,13 +66,17 @@ int cmdProcessor(void)
 				{
 				
 					//implement to read the position zero of array temperature
-					int temperature = sensor_temp[0];
+					
+					
+					txChar(sensor_temp[0]); 
 				}
 				
 				if(sid == 'h')
 				{
 					// implement to read the position zero of array humidity 
-					int humidity = sensor_humidity[0];
+					
+					
+					txChar(sensor_humidity[0]);
 				
 				}
 				
@@ -78,18 +84,40 @@ int cmdProcessor(void)
 				{
 				
 					// implement to read the position zero of array co2
-					int co2 = sensor_CO2[0];
+					
+					
+					txChar(sensor_CO2[0]);
 				}
 				break;
 				
 			case 'A':
 			
 				// implement to read the position zero value of all the arrays
+				
+					
+					txChar(sensor_temp[0]);
+					txChar(sensor_humidity[0]);
+					txChar(sensor_CO2[0]);
+					
+					
 				break;
 				
 			case 'L':
 			
-				// implement to read aoo the 20 positions of the 3 arrays !
+				// implement to read all the 20 positions of the 3 arrays !
+				
+			
+				
+				for(int i = 0; i<20; i++)
+				{
+					txChar(sensor_temp[i]);
+					txChar(sensor_humidity[i]);
+					txChar(sensor_CO2[i]);
+					
+					// Como implementar ? Dar reset depois de armazernar cada variavel?
+					
+				}
+				
 				break;
 				
 			case 'R':
